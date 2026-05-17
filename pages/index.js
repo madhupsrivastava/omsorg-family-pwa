@@ -54,6 +54,8 @@ export default function FamilyLogin() {
     setMagicSent(true);
     setMagicLoading(false);
   };
+
+  const handleLogin = async (e) => {
     e.preventDefault();
     setLoading(true); setError("");
 
