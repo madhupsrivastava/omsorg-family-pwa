@@ -173,3 +173,5 @@ export default function FamilyLogin() {
     </>
   );
 }
+
+export const getServerSideProps = () => ({ props: {} });
