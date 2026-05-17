@@ -14,25 +14,22 @@ export default function FamilyLogin() {
   const supabase = createBrowserClient();
 
   useEffect(() => {
-    // Handle magic link / password reset tokens in URL hash
-    const hash = window.location.hash;
-    if (hash && hash.includes("access_token")) {
-      const params = new URLSearchParams(hash.slice(1));
-      const accessToken  = params.get("access_token");
-      const refreshToken = params.get("refresh_token");
-      if (accessToken && refreshToken) {
-        supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken })
-          .then(({ data: { session } }) => {
-            if (session) window.location.href = "/dashboard";
-            else setChecking(false);
-          });
-        return;
+    // onAuthStateChange fires when magic link token is auto-processed
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (session) {
+        window.location.href = "/dashboard";
+      } else if (event === "SIGNED_OUT" || event === "INITIAL_SESSION") {
+        setChecking(false);
       }
-    }
+    });
+
+    // Also check existing session
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) window.location.href = "/dashboard";
       else setChecking(false);
     });
+
+    return () => subscription.unsubscribe();
   }, []);
 
   const handleLogin = async (e) => {
