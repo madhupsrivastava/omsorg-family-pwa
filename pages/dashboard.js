@@ -219,3 +219,5 @@ export default function FamilyDashboard() {
     </>
   );
 }
+
+export const getServerSideProps = () => ({ props: {} });
