@@ -14,25 +14,21 @@ export default function FamilyLogin() {
   const supabase = createBrowserClient();
 
   useEffect(() => {
-    const url = new URL(window.location.href);
-    const code = url.searchParams.get("code");
-
-    // PKCE flow — magic link sends a code param, exchange it for a session
-    if (code) {
-      supabase.auth.exchangeCodeForSession(code).then(({ data: { session }, error }) => {
-        if (session) {
-          // Clean the URL then redirect
-          window.history.replaceState({}, "", "/");
-          window.location.href = "/dashboard";
-        } else {
-          console.error("Code exchange failed:", error);
-          setChecking(false);
-        }
-      });
-      return;
+    // Implicit flow — token is in URL hash
+    const hash = window.location.hash;
+    if (hash && hash.includes("access_token")) {
+      const params = new URLSearchParams(hash.slice(1));
+      const access_token = params.get("access_token");
+      const refresh_token = params.get("refresh_token");
+      if (access_token) {
+        supabase.auth.setSession({ access_token, refresh_token })
+          .then(({ data: { session } }) => {
+            if (session) window.location.href = "/dashboard";
+            else setChecking(false);
+          });
+        return;
+      }
     }
-
-    // No code — just check if already logged in
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) window.location.href = "/dashboard";
       else setChecking(false);
