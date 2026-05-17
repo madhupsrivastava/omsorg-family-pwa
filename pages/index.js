@@ -14,22 +14,29 @@ export default function FamilyLogin() {
   const supabase = createBrowserClient();
 
   useEffect(() => {
-    // onAuthStateChange fires when magic link token is auto-processed
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (session) {
-        window.location.href = "/dashboard";
-      } else if (event === "SIGNED_OUT" || event === "INITIAL_SESSION") {
-        setChecking(false);
-      }
-    });
+    const url = new URL(window.location.href);
+    const code = url.searchParams.get("code");
 
-    // Also check existing session
+    // PKCE flow — magic link sends a code param, exchange it for a session
+    if (code) {
+      supabase.auth.exchangeCodeForSession(code).then(({ data: { session }, error }) => {
+        if (session) {
+          // Clean the URL then redirect
+          window.history.replaceState({}, "", "/");
+          window.location.href = "/dashboard";
+        } else {
+          console.error("Code exchange failed:", error);
+          setChecking(false);
+        }
+      });
+      return;
+    }
+
+    // No code — just check if already logged in
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) window.location.href = "/dashboard";
       else setChecking(false);
     });
-
-    return () => subscription.unsubscribe();
   }, []);
 
   const handleLogin = async (e) => {
