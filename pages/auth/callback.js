@@ -6,28 +6,16 @@ export default function AuthCallback() {
     const supabase = createBrowserClient();
 
     const handleCallback = async () => {
-      // Implicit flow — token in URL hash (primary method)
-      const hash = window.location.hash;
-      if (hash && hash.includes("access_token")) {
-        const params = new URLSearchParams(hash.slice(1));
-        const access_token  = params.get("access_token");
-        const refresh_token = params.get("refresh_token");
-        if (access_token) {
-          const { data: { session } } = await supabase.auth.setSession({ access_token, refresh_token });
-          if (session) { window.location.href = "/dashboard"; return; }
-        }
+      // With flowType:'implicit' and detectSessionInUrl:true,
+      // Supabase automatically processes the hash token on init.
+      // Just call getSession() and it returns the session.
+      const { data: { session }, error } = await supabase.auth.getSession();
+      if (session) {
+        window.location.href = "/dashboard";
+      } else {
+        console.error("Auth callback failed:", error);
+        window.location.href = "/";
       }
-
-      // PKCE fallback — code in URL query params
-      const url = new URL(window.location.href);
-      const code = url.searchParams.get("code");
-      if (code) {
-        const { data: { session } } = await supabase.auth.exchangeCodeForSession(code);
-        if (session) { window.location.href = "/dashboard"; return; }
-      }
-
-      // Nothing worked — back to login
-      window.location.href = "/";
     };
 
     handleCallback();
