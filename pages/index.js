@@ -1,176 +1,41 @@
-import { useState, useEffect } from "react";
-import Head from "next/head";
-import { createBrowserClient } from "../lib/supabase";
+import { useEffect } from "react";
+import { createBrowserClient } from "../../lib/supabase";
 
-const MAROON = "#8B1A1A";
-
-export default function FamilyLogin() {
-  const [email,    setEmail]    = useState("");
-  const [password, setPassword] = useState("");
-  const [loading,  setLoading]  = useState(false);
-  const [error,    setError]    = useState("");
-  const [checking, setChecking] = useState(true);
-
-  const supabase = createBrowserClient();
-
+export default function AuthCallback() {
   useEffect(() => {
-    // Implicit flow — token is in URL hash
-    const hash = window.location.hash;
-    if (hash && hash.includes("access_token")) {
-      const params = new URLSearchParams(hash.slice(1));
-      const access_token = params.get("access_token");
-      const refresh_token = params.get("refresh_token");
-      if (access_token) {
-        supabase.auth.setSession({ access_token, refresh_token })
-          .then(({ data: { session } }) => {
-            if (session) window.location.href = "/dashboard";
-            else setChecking(false);
-          });
-        return;
+    const supabase = createBrowserClient();
+
+    const handleCallback = async () => {
+      // With flowType:'implicit' and detectSessionInUrl:true,
+      // Supabase automatically processes the hash token on init.
+      // Just call getSession() and it returns the session.
+      const { data: { session }, error } = await supabase.auth.getSession();
+      if (session) {
+        window.location.href = "/dashboard";
+      } else {
+        console.error("Auth callback failed:", error);
+        window.location.href = "/";
       }
-    }
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) window.location.href = "/dashboard";
-      else setChecking(false);
-    });
+    };
+
+    handleCallback();
   }, []);
 
-  const [magicSent, setMagicSent] = useState(false);
-  const [magicEmail, setMagicEmail] = useState("");
-  const [magicLoading, setMagicLoading] = useState(false);
-
-  const handleMagicLink = async (e) => {
-    e.preventDefault();
-    setMagicLoading(true); setError("");
-    const { error: otpError } = await supabase.auth.signInWithOtp({
-      email: magicEmail,
-      options: { emailRedirectTo: "https://omsorg-family-pwa.vercel.app/auth/callback" },
-    });
-    if (otpError) { setError(otpError.message); setMagicLoading(false); return; }
-    setMagicSent(true);
-    setMagicLoading(false);
-  };
-
-  const handleLogin = async (e) => {
-    e.preventDefault();
-    setLoading(true); setError("");
-
-    const { data, error: authError } = await supabase.auth.signInWithPassword({ email, password });
-    if (authError) { setError("Incorrect email or password. Please try again."); setLoading(false); return; }
-
-    // Verify this is a family account (extra client-side check — server enforces too)
-    const { data: profile } = await supabase
-      .from("users")
-      .select("role")
-      .eq("id", data.user.id)
-      .single();
-
-    if (profile?.role !== "family") {
-      await supabase.auth.signOut();
-      setError("This portal is for family members only. Staff should use the Staff Portal.");
-      setLoading(false);
-      return;
-    }
-
-    window.location.href = "/dashboard";
-  };
-
-  if (checking) return null;
-
   return (
-    <>
-      <Head>
-        <title>Omsorg Family Portal</title>
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <meta name="theme-color" content={MAROON} />
-      </Head>
-      <style>{`
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #FFF5F5; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 24px; }
-        input:focus { outline: 2px solid ${MAROON}; border-color: ${MAROON}; }
-      `}</style>
-
-      <div style={{ width: "100%", maxWidth: "380px" }}>
-        {/* Logo area */}
-        <div style={{ textAlign: "center", marginBottom: "32px" }}>
-          <div style={{ width: "64px", height: "64px", borderRadius: "18px", background: MAROON, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 14px" }}>
-            <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
-              <path d="M16 3C10.48 3 6 7.48 6 13c0 3.72 1.94 6.98 4.86 8.88L9 29h14l-1.86-7.12A10 10 0 0026 13c0-5.52-4.48-10-10-10z" fill="#F5C0C0"/>
-            </svg>
-          </div>
-          <div style={{ fontSize: "22px", fontWeight: 800, color: MAROON }}>Omsorg</div>
-          <div style={{ fontSize: "14px", color: "#9CA3AF", marginTop: "4px" }}>Family Care Portal</div>
-        </div>
-
-        {/* Login card */}
-        <div style={{ background: "#fff", borderRadius: "20px", padding: "28px 24px", boxShadow: "0 4px 24px rgba(139,26,26,0.08)" }}>
-          <div style={{ fontSize: "18px", fontWeight: 700, color: "#111827", marginBottom: "6px" }}>Welcome back</div>
-          <div style={{ fontSize: "13px", color: "#6B7280", marginBottom: "24px", lineHeight: "1.5" }}>
-            Sign in to view care updates for your loved one.
-          </div>
-
-          {magicSent ? (
-            <div style={{ textAlign: "center", padding: "20px 0" }}>
-              <div style={{ fontSize: "32px", marginBottom: "12px" }}>📧</div>
-              <div style={{ fontWeight: 700, color: "#111827", marginBottom: "8px" }}>Check your email!</div>
-              <div style={{ fontSize: "13px", color: "#6B7280", lineHeight: "1.6" }}>
-                We sent a login link to <strong>{magicEmail}</strong>. Click it to sign in — no password needed.
-              </div>
-              <button onClick={() => setMagicSent(false)} style={{ marginTop: "16px", background: "none", border: "none", color: MAROON, fontSize: "13px", fontWeight: 600, cursor: "pointer" }}>
-                Try a different email
-              </button>
-            </div>
-          ) : (
-            <>
-              <form onSubmit={handleMagicLink} style={{ marginBottom: "20px" }}>
-                <div style={{ fontSize: "13px", fontWeight: 600, color: "#374151", marginBottom: "10px" }}>Sign in with a one-tap link</div>
-                <div style={{ display: "flex", gap: "8px" }}>
-                  <input type="email" value={magicEmail} onChange={e => setMagicEmail(e.target.value)} placeholder="your@email.com" required
-                    style={{ flex: 1, padding: "13px 14px", borderRadius: "10px", border: "1px solid #E5E7EB", fontSize: "15px" }} />
-                  <button type="submit" disabled={magicLoading}
-                    style={{ padding: "13px 16px", borderRadius: "10px", border: "none", background: MAROON, color: "#fff", fontSize: "13px", fontWeight: 700, cursor: magicLoading ? "not-allowed" : "pointer", whiteSpace: "nowrap" }}>
-                    {magicLoading ? "…" : "Send link"}
-                  </button>
-                </div>
-              </form>
-
-              <div style={{ textAlign: "center", color: "#9CA3AF", fontSize: "12px", margin: "16px 0" }}>— or sign in with password —</div>
-
-              <form onSubmit={handleLogin}>
-                <div style={{ marginBottom: "14px" }}>
-                  <label style={{ fontSize: "12px", fontWeight: 600, color: "#6B7280", display: "block", marginBottom: "6px" }}>EMAIL ADDRESS</label>
-                  <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="your@email.com" required
-                    style={{ width: "100%", padding: "13px 14px", borderRadius: "10px", border: "1px solid #E5E7EB", fontSize: "15px" }} />
-                </div>
-                <div style={{ marginBottom: "20px" }}>
-                  <label style={{ fontSize: "12px", fontWeight: 600, color: "#6B7280", display: "block", marginBottom: "6px" }}>PASSWORD</label>
-                  <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" required
-                    style={{ width: "100%", padding: "13px 14px", borderRadius: "10px", border: "1px solid #E5E7EB", fontSize: "15px" }} />
-                </div>
-
-                {error && <div style={{ background: "#FEE2E2", color: "#991B1B", padding: "10px 12px", borderRadius: "8px", fontSize: "13px", marginBottom: "14px" }}>{error}</div>}
-
-                <button type="submit" disabled={loading}
-                  style={{ width: "100%", padding: "14px", borderRadius: "12px", border: "none", background: loading ? "#D1D5DB" : MAROON,
-                    color: "#fff", fontSize: "15px", fontWeight: 700, cursor: loading ? "not-allowed" : "pointer" }}>
-                  {loading ? "Signing in…" : "Sign In"}
-                </button>
-              </form>
-            </>
-          )}
-
-          <div style={{ marginTop: "20px", padding: "14px", background: "#FFF9F0", borderRadius: "10px", fontSize: "12px", color: "#92400E", lineHeight: "1.6" }}>
-            🔒 Your login details are provided by Omsorg. If you need access or have forgotten your password, please contact us.
-          </div>
-        </div>
-
-        <div style={{ textAlign: "center", marginTop: "20px" }}>
-          <a href="https://wa.me/918448381360" style={{ fontSize: "13px", color: MAROON, textDecoration: "none", fontWeight: 600 }}>
-            Need help? WhatsApp Omsorg →
-          </a>
-        </div>
-      </div>
-    </>
+    <div style={{
+      fontFamily: "-apple-system, sans-serif",
+      background: "#FFF5F5",
+      minHeight: "100vh",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      flexDirection: "column",
+      gap: "16px",
+    }}>
+      <div style={{ width: "40px", height: "40px", border: "3px solid #8B1A1A", borderTopColor: "transparent", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
+      <div style={{ color: "#8B1A1A", fontWeight: 600, fontSize: "15px" }}>Signing you in…</div>
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+    </div>
   );
 }
 
