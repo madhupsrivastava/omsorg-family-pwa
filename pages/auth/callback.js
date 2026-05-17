@@ -50,3 +50,5 @@ export default function AuthCallback() {
     </div>
   );
 }
+
+export const getServerSideProps = () => ({ props: {} });
