@@ -39,7 +39,21 @@ export default function FamilyLogin() {
     });
   }, []);
 
-  const handleLogin = async (e) => {
+  const [magicSent, setMagicSent] = useState(false);
+  const [magicEmail, setMagicEmail] = useState("");
+  const [magicLoading, setMagicLoading] = useState(false);
+
+  const handleMagicLink = async (e) => {
+    e.preventDefault();
+    setMagicLoading(true); setError("");
+    const { error: otpError } = await supabase.auth.signInWithOtp({
+      email: magicEmail,
+      options: { emailRedirectTo: "https://omsorg-family-pwa.vercel.app/auth/callback" },
+    });
+    if (otpError) { setError(otpError.message); setMagicLoading(false); return; }
+    setMagicSent(true);
+    setMagicLoading(false);
+  };
     e.preventDefault();
     setLoading(true); setError("");
 
@@ -97,26 +111,55 @@ export default function FamilyLogin() {
             Sign in to view care updates for your loved one.
           </div>
 
-          <form onSubmit={handleLogin}>
-            <div style={{ marginBottom: "14px" }}>
-              <label style={{ fontSize: "12px", fontWeight: 600, color: "#6B7280", display: "block", marginBottom: "6px" }}>EMAIL ADDRESS</label>
-              <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="your@email.com" required
-                style={{ width: "100%", padding: "13px 14px", borderRadius: "10px", border: "1px solid #E5E7EB", fontSize: "15px" }} />
+          {magicSent ? (
+            <div style={{ textAlign: "center", padding: "20px 0" }}>
+              <div style={{ fontSize: "32px", marginBottom: "12px" }}>📧</div>
+              <div style={{ fontWeight: 700, color: "#111827", marginBottom: "8px" }}>Check your email!</div>
+              <div style={{ fontSize: "13px", color: "#6B7280", lineHeight: "1.6" }}>
+                We sent a login link to <strong>{magicEmail}</strong>. Click it to sign in — no password needed.
+              </div>
+              <button onClick={() => setMagicSent(false)} style={{ marginTop: "16px", background: "none", border: "none", color: MAROON, fontSize: "13px", fontWeight: 600, cursor: "pointer" }}>
+                Try a different email
+              </button>
             </div>
-            <div style={{ marginBottom: "20px" }}>
-              <label style={{ fontSize: "12px", fontWeight: 600, color: "#6B7280", display: "block", marginBottom: "6px" }}>PASSWORD</label>
-              <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" required
-                style={{ width: "100%", padding: "13px 14px", borderRadius: "10px", border: "1px solid #E5E7EB", fontSize: "15px" }} />
-            </div>
+          ) : (
+            <>
+              <form onSubmit={handleMagicLink} style={{ marginBottom: "20px" }}>
+                <div style={{ fontSize: "13px", fontWeight: 600, color: "#374151", marginBottom: "10px" }}>Sign in with a one-tap link</div>
+                <div style={{ display: "flex", gap: "8px" }}>
+                  <input type="email" value={magicEmail} onChange={e => setMagicEmail(e.target.value)} placeholder="your@email.com" required
+                    style={{ flex: 1, padding: "13px 14px", borderRadius: "10px", border: "1px solid #E5E7EB", fontSize: "15px" }} />
+                  <button type="submit" disabled={magicLoading}
+                    style={{ padding: "13px 16px", borderRadius: "10px", border: "none", background: MAROON, color: "#fff", fontSize: "13px", fontWeight: 700, cursor: magicLoading ? "not-allowed" : "pointer", whiteSpace: "nowrap" }}>
+                    {magicLoading ? "…" : "Send link"}
+                  </button>
+                </div>
+              </form>
 
-            {error && <div style={{ background: "#FEE2E2", color: "#991B1B", padding: "10px 12px", borderRadius: "8px", fontSize: "13px", marginBottom: "14px" }}>{error}</div>}
+              <div style={{ textAlign: "center", color: "#9CA3AF", fontSize: "12px", margin: "16px 0" }}>— or sign in with password —</div>
 
-            <button type="submit" disabled={loading}
-              style={{ width: "100%", padding: "14px", borderRadius: "12px", border: "none", background: loading ? "#D1D5DB" : MAROON,
-                color: "#fff", fontSize: "15px", fontWeight: 700, cursor: loading ? "not-allowed" : "pointer" }}>
-              {loading ? "Signing in…" : "Sign In"}
-            </button>
-          </form>
+              <form onSubmit={handleLogin}>
+                <div style={{ marginBottom: "14px" }}>
+                  <label style={{ fontSize: "12px", fontWeight: 600, color: "#6B7280", display: "block", marginBottom: "6px" }}>EMAIL ADDRESS</label>
+                  <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="your@email.com" required
+                    style={{ width: "100%", padding: "13px 14px", borderRadius: "10px", border: "1px solid #E5E7EB", fontSize: "15px" }} />
+                </div>
+                <div style={{ marginBottom: "20px" }}>
+                  <label style={{ fontSize: "12px", fontWeight: 600, color: "#6B7280", display: "block", marginBottom: "6px" }}>PASSWORD</label>
+                  <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" required
+                    style={{ width: "100%", padding: "13px 14px", borderRadius: "10px", border: "1px solid #E5E7EB", fontSize: "15px" }} />
+                </div>
+
+                {error && <div style={{ background: "#FEE2E2", color: "#991B1B", padding: "10px 12px", borderRadius: "8px", fontSize: "13px", marginBottom: "14px" }}>{error}</div>}
+
+                <button type="submit" disabled={loading}
+                  style={{ width: "100%", padding: "14px", borderRadius: "12px", border: "none", background: loading ? "#D1D5DB" : MAROON,
+                    color: "#fff", fontSize: "15px", fontWeight: 700, cursor: loading ? "not-allowed" : "pointer" }}>
+                  {loading ? "Signing in…" : "Sign In"}
+                </button>
+              </form>
+            </>
+          )}
 
           <div style={{ marginTop: "20px", padding: "14px", background: "#FFF9F0", borderRadius: "10px", fontSize: "12px", color: "#92400E", lineHeight: "1.6" }}>
             🔒 Your login details are provided by Omsorg. If you need access or have forgotten your password, please contact us.
