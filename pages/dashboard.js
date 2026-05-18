@@ -42,10 +42,10 @@ function timeAgo(dateStr) {
   const diffDays = Math.floor(diffHours / 24);
 
   if (diffMins < 1) return "Just now";
-  if (diffMins < 60) return `${diffMins}m ago`;
-  if (diffHours < 24) return `${diffHours}h ago`;
+  if (diffMins < 60) return diffMins + "m ago";
+  if (diffHours < 24) return diffHours + "h ago";
   if (diffDays === 1) return "Yesterday";
-  if (diffDays < 7) return `${diffDays} days ago`;
+  if (diffDays < 7) return diffDays + " days ago";
   return date.toLocaleDateString("en-IN", { day: "numeric", month: "short" });
 }
 
@@ -103,10 +103,10 @@ function UpdateCard({ update }) {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const attribution = [
-    update.staff_name && `Care by ${update.staff_name}`,
-    update.supervisor_name && `Reviewed by ${update.supervisor_name}`,
-  ].filter(Boolean).join(" · ");
+  const parts = [];
+  if (update.staff_name) parts.push("Care by " + update.staff_name);
+  if (update.supervisor_name) parts.push("Reviewed by " + update.supervisor_name);
+  const attribution = parts.join(" · ");
 
   return (
     <div style={{
@@ -114,7 +114,6 @@ function UpdateCard({ update }) {
       boxShadow: "0 2px 8px rgba(0,0,0,0.06)", marginBottom: "12px",
       overflow: "hidden", border: "1px solid #f3f4f6",
     }}>
-      {/* Header */}
       <div style={{ padding: "12px 16px 10px", borderBottom: "1px solid #f9fafb" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <span style={{ background: cfg.bg, color: cfg.color, padding: "3px 10px", borderRadius: "20px", fontSize: "11px", fontWeight: 700 }}>
@@ -124,7 +123,6 @@ function UpdateCard({ update }) {
         </div>
       </div>
 
-      {/* Text */}
       <div style={{ padding: "14px 16px 10px" }}>
         <p style={{ fontSize: "14px", lineHeight: "1.75", color: "#374151", margin: 0, whiteSpace: "pre-wrap" }}>{displayText}</p>
         {isLong && (
@@ -134,10 +132,8 @@ function UpdateCard({ update }) {
         )}
       </div>
 
-      {/* Photos */}
       <MediaGrid media={update.media} />
 
-      {/* Footer */}
       <div style={{ padding: "10px 16px 14px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: "8px" }}>
         <div style={{ fontSize: "11px", color: "#9CA3AF", flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
           {attribution}
@@ -146,7 +142,7 @@ function UpdateCard({ update }) {
           <button onClick={copyText} style={{ padding: "6px 12px", borderRadius: "8px", border: "1px solid #e5e7eb", background: "#fff", fontSize: "12px", fontWeight: 600, cursor: "pointer", color: copied ? "#065F46" : "#374151" }}>
             {copied ? "✓ Copied" : "Copy"}
           </button>
-          <a href={`https://wa.me/?text=${encodeURIComponent(text)}`} target="_blank" rel="noreferrer"
+          <a href={"https://wa.me/?text=" + encodeURIComponent(text)} target="_blank" rel="noreferrer"
             style={{ padding: "6px 12px", borderRadius: "8px", background: "#25D366", color: "#fff", fontSize: "12px", fontWeight: 600, textDecoration: "none", display: "inline-block" }}>
             WhatsApp
           </a>
@@ -169,13 +165,13 @@ function SessionExpiredBanner({ onRelogin }) {
 
 export default function FamilyDashboard() {
   const supabase = createBrowserClient();
-  const [session,       setSession]       = useState(null);
-  const [profile,       setProfile]       = useState(null);
-  const [updates,       setUpdates]       = useState([]);
-  const [clients,       setClients]       = useState([]);
-  const [activeClient,  setActiveClient]  = useState(null);
-  const [loading,       setLoading]       = useState(true);
-  const [error,         setError]         = useState("");
+  const [session, setSession] = useState(null);
+  const [profile, setProfile] = useState(null);
+  const [updates, setUpdates] = useState([]);
+  const [clients, setClients] = useState([]);
+  const [activeClient, setActiveClient] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const [sessionExpired, setSessionExpired] = useState(false);
 
   const handleAuthError = useCallback(async (err) => {
@@ -210,9 +206,9 @@ export default function FamilyDashboard() {
 
   const fetchUpdates = async (token, clientId) => {
     setLoading(true); setError("");
-    const url = clientId ? `/api/family/updates?clientId=${clientId}` : "/api/family/updates";
+    const url = clientId ? "/api/family/updates?clientId=" + clientId : "/api/family/updates";
     try {
-      const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+      const res = await fetch(url, { headers: { Authorization: "Bearer " + token } });
       const data = await res.json();
       if (res.status === 401) { handleAuthError("JWT expired"); return; }
       if (!res.ok) { setError(data.error || "Could not load updates"); setLoading(false); return; }
@@ -238,6 +234,10 @@ export default function FamilyDashboard() {
   const grouped = groupByDate(updates);
   const activeClientInfo = clients.find(c => c.id === activeClient);
 
+  const bodyCss = "* { box-sizing: border-box; margin: 0; padding: 0; } body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #F7F3F3; min-height: 100vh; }";
+  const spinCss = "@keyframes spin { to { transform: rotate(360deg); } }";
+  const spinnerBorder = "3px solid " + MAROON;
+
   return (
     <>
       <Head>
@@ -245,10 +245,7 @@ export default function FamilyDashboard() {
         <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
         <meta name="theme-color" content={MAROON} />
       </Head>
-      <style>{`
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #F7F3F3; min-height: 100vh; }
-      `}</style>
+      <style>{bodyCss}</style>
 
       <div style={{ background: MAROON, paddingTop: "env(safe-area-inset-top, 0)" }}>
         <div style={{ padding: "14px 16px 20px", display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
@@ -303,4 +300,39 @@ export default function FamilyDashboard() {
 
         {loading && (
           <div style={{ textAlign: "center", padding: "48px 0" }}>
-            <div style={{ width: "32px", height: "32px", border: `3px solid ${MAROON}`, borderTopColor: "transparent", borderRadius: "50%", animation: "spin 0.8s linear infinite", margin: "0 auto 12
+            <div style={{ width: "32px", height: "32px", border: spinnerBorder, borderTopColor: "transparent", borderRadius: "50%", animation: "spin 0.8s linear infinite", margin: "0 auto 12px" }} />
+            <div style={{ color: "#9CA3AF", fontSize: "13px" }}>Loading updates…</div>
+            <style>{spinCss}</style>
+          </div>
+        )}
+
+        {!loading && updates.length === 0 && !error && (
+          <div style={{ textAlign: "center", padding: "60px 24px" }}>
+            <div style={{ fontSize: "48px", marginBottom: "16px" }}>💛</div>
+            <div style={{ fontWeight: 700, color: "#374151", fontSize: "16px", marginBottom: "8px" }}>No updates yet</div>
+            <div style={{ fontSize: "13px", color: "#9CA3AF", lineHeight: "1.6" }}>
+              Your Omsorg care team will post updates here. Check back soon!
+            </div>
+          </div>
+        )}
+
+        {!loading && grouped.map(([date, dayUpdates]) => (
+          <div key={date} style={{ marginBottom: "8px" }}>
+            <div style={{ fontSize: "12px", fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase", letterSpacing: "0.05em", padding: "8px 0 6px", textAlign: "center" }}>
+              — {formatFullDate(date)} —
+            </div>
+            {dayUpdates.map(u => <UpdateCard key={u.id} update={u} />)}
+          </div>
+        ))}
+
+        {!loading && updates.length > 0 && (
+          <div style={{ textAlign: "center", padding: "16px 0", fontSize: "12px", color: "#C0C0C0" }}>
+            All updates are reviewed by Omsorg before publishing
+          </div>
+        )}
+      </div>
+    </>
+  );
+}
+
+export const getServerSideProps = () => ({ props: {} });
