@@ -4,6 +4,7 @@ import { createBrowserClient } from "../lib/supabase";
 
 const MAROON = "#8B1A1A";
 
+// Legacy update_type config (for older AI-generated updates)
 const UPDATE_TYPE_CONFIG = {
   daily:    { emoji: "📋", label: "Daily Update",   color: "#1E40AF", bg: "#EFF6FF" },
   health:   { emoji: "💊", label: "Health Update",  color: "#166534", bg: "#F0FDF4" },
@@ -12,6 +13,25 @@ const UPDATE_TYPE_CONFIG = {
   activity: { emoji: "🎯", label: "Activity",       color: "#6D28D9", bg: "#F5F3FF" },
   general:  { emoji: "💬", label: "Update",         color: "#374151", bg: "#F9FAFB" },
 };
+
+// New category config (for Supervisor Console updates)
+const CATEGORY_CONFIG = {
+  attendance:         { emoji: "📍", label: "Attendance",    color: "#1E40AF", bg: "#EFF6FF" },
+  personal_care:      { emoji: "🛁", label: "Personal Care", color: "#9D174D", bg: "#FDF2F8" },
+  medication:         { emoji: "💊", label: "Medication",    color: "#166534", bg: "#F0FDF4" },
+  meal_food:          { emoji: "🍽️", label: "Meal & Food",   color: "#92400E", bg: "#FFFBEB" },
+  toileting:          { emoji: "🚽", label: "Toileting",     color: "#0E7490", bg: "#ECFEFF" },
+  activity:           { emoji: "🎯", label: "Activity",      color: "#6D28D9", bg: "#F5F3FF" },
+  health_observation: { emoji: "🩺", label: "Health Note",   color: "#0F766E", bg: "#F0FDFA" },
+  incident_concern:   { emoji: "⚠️", label: "Concern",       color: "#991B1B", bg: "#FFF5F5" },
+  general:            { emoji: "💬", label: "Update",        color: "#374151", bg: "#F9FAFB" },
+};
+
+function resolveBadge(update) {
+  if (update.category && CATEGORY_CONFIG[update.category]) return CATEGORY_CONFIG[update.category];
+  if (update.update_type && UPDATE_TYPE_CONFIG[update.update_type]) return UPDATE_TYPE_CONFIG[update.update_type];
+  return UPDATE_TYPE_CONFIG.general;
+}
 
 function timeAgo(dateStr) {
   const now = new Date();
@@ -43,10 +63,36 @@ function groupByDate(updates) {
   return Object.entries(groups).sort(([a], [b]) => new Date(b) - new Date(a));
 }
 
+function MediaGrid({ media }) {
+  if (!media || media.length === 0) return null;
+  const single = media.length === 1;
+  return (
+    <div style={{ padding: "0 16px 12px" }}>
+      <div style={{
+        display: "grid",
+        gridTemplateColumns: single ? "1fr" : "repeat(2, 1fr)",
+        gap: "6px",
+      }}>
+        {media.map(m => (
+          <a key={m.id} href={m.url} target="_blank" rel="noreferrer" style={{
+            display: "block",
+            aspectRatio: single ? "16 / 10" : "1",
+            borderRadius: "10px",
+            overflow: "hidden",
+            background: "#f3f4f6",
+          }}>
+            <img src={m.url} alt={m.caption || ""} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+          </a>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function UpdateCard({ update }) {
   const [expanded, setExpanded] = useState(false);
   const [copied, setCopied] = useState(false);
-  const cfg = UPDATE_TYPE_CONFIG[update.update_type] || UPDATE_TYPE_CONFIG.general;
+  const cfg = resolveBadge(update);
   const text = update.published_update || "";
   const isLong = text.length > 200;
   const displayText = !expanded && isLong ? text.slice(0, 200) + "…" : text;
@@ -57,13 +103,18 @@ function UpdateCard({ update }) {
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const attribution = [
+    update.staff_name && `Care by ${update.staff_name}`,
+    update.supervisor_name && `Reviewed by ${update.supervisor_name}`,
+  ].filter(Boolean).join(" · ");
+
   return (
     <div style={{
       background: "#fff", borderRadius: "16px", padding: "0",
       boxShadow: "0 2px 8px rgba(0,0,0,0.06)", marginBottom: "12px",
       overflow: "hidden", border: "1px solid #f3f4f6",
     }}>
-      {/* Card header */}
+      {/* Header */}
       <div style={{ padding: "12px 16px 10px", borderBottom: "1px solid #f9fafb" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <span style={{ background: cfg.bg, color: cfg.color, padding: "3px 10px", borderRadius: "20px", fontSize: "11px", fontWeight: 700 }}>
@@ -73,9 +124,9 @@ function UpdateCard({ update }) {
         </div>
       </div>
 
-      {/* Update text */}
+      {/* Text */}
       <div style={{ padding: "14px 16px 10px" }}>
-        <p style={{ fontSize: "14px", lineHeight: "1.75", color: "#374151", margin: 0 }}>{displayText}</p>
+        <p style={{ fontSize: "14px", lineHeight: "1.75", color: "#374151", margin: 0, whiteSpace: "pre-wrap" }}>{displayText}</p>
         {isLong && (
           <button onClick={() => setExpanded(e => !e)} style={{ background: "none", border: "none", color: MAROON, fontSize: "13px", fontWeight: 600, cursor: "pointer", marginTop: "8px", padding: 0 }}>
             {expanded ? "Show less ↑" : "Read more ↓"}
@@ -83,12 +134,15 @@ function UpdateCard({ update }) {
         )}
       </div>
 
+      {/* Photos */}
+      <MediaGrid media={update.media} />
+
       {/* Footer */}
-      <div style={{ padding: "10px 16px 14px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <div style={{ fontSize: "12px", color: "#9CA3AF" }}>
-          {update.supervisor_name ? `✓ Reviewed by ${update.supervisor_name}` : ""}
+      <div style={{ padding: "10px 16px 14px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: "8px" }}>
+        <div style={{ fontSize: "11px", color: "#9CA3AF", flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          {attribution}
         </div>
-        <div style={{ display: "flex", gap: "8px" }}>
+        <div style={{ display: "flex", gap: "8px", flexShrink: 0 }}>
           <button onClick={copyText} style={{ padding: "6px 12px", borderRadius: "8px", border: "1px solid #e5e7eb", background: "#fff", fontSize: "12px", fontWeight: 600, cursor: "pointer", color: copied ? "#065F46" : "#374151" }}>
             {copied ? "✓ Copied" : "Copy"}
           </button>
@@ -124,7 +178,6 @@ export default function FamilyDashboard() {
   const [error,         setError]         = useState("");
   const [sessionExpired, setSessionExpired] = useState(false);
 
-  // Graceful session expiry handler
   const handleAuthError = useCallback(async (err) => {
     if (err?.includes?.("JWT expired") || err?.includes?.("token is expired") || err?.message?.includes?.("JWT")) {
       await supabase.auth.signOut();
@@ -147,9 +200,8 @@ export default function FamilyDashboard() {
       await fetchUpdates(session.access_token, null);
     });
 
-    // Listen for auth state changes (catches token refresh failures)
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === "SIGNED_OUT" || event === "TOKEN_REFRESHED" && !session) {
+      if (event === "SIGNED_OUT" || (event === "TOKEN_REFRESHED" && !session)) {
         setSessionExpired(true);
       }
     });
@@ -198,7 +250,6 @@ export default function FamilyDashboard() {
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #F7F3F3; min-height: 100vh; }
       `}</style>
 
-      {/* Header */}
       <div style={{ background: MAROON, paddingTop: "env(safe-area-inset-top, 0)" }}>
         <div style={{ padding: "14px 16px 20px", display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
           <div>
@@ -217,7 +268,6 @@ export default function FamilyDashboard() {
           </button>
         </div>
 
-        {/* Client tabs */}
         {clients.length > 1 && (
           <div style={{ display: "flex", gap: "6px", padding: "0 16px 14px", overflowX: "auto" }}>
             {clients.map(c => (
@@ -232,18 +282,15 @@ export default function FamilyDashboard() {
           </div>
         )}
 
-        {/* Wave */}
         <svg viewBox="0 0 390 20" fill="none" style={{ display: "block", width: "100%" }}>
           <path d="M0 0 Q97.5 20 195 10 Q292.5 0 390 20 L390 20 L0 20 Z" fill="#F7F3F3"/>
         </svg>
       </div>
 
-      {/* Session expired banner */}
       {sessionExpired && <SessionExpiredBanner onRelogin={() => window.location.href = "/"} />}
 
       <div style={{ padding: "8px 16px 48px", maxWidth: "560px", margin: "0 auto" }}>
 
-        {/* Contact card */}
         <div style={{ background: "#fff", borderRadius: "14px", padding: "14px 16px", marginBottom: "16px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <div style={{ fontSize: "13px", color: "#374151" }}>Questions about care?</div>
           <a href="https://wa.me/918448381360" target="_blank" rel="noreferrer"
@@ -256,40 +303,4 @@ export default function FamilyDashboard() {
 
         {loading && (
           <div style={{ textAlign: "center", padding: "48px 0" }}>
-            <div style={{ width: "32px", height: "32px", border: `3px solid ${MAROON}`, borderTopColor: "transparent", borderRadius: "50%", animation: "spin 0.8s linear infinite", margin: "0 auto 12px" }} />
-            <div style={{ color: "#9CA3AF", fontSize: "13px" }}>Loading updates…</div>
-            <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-          </div>
-        )}
-
-        {!loading && updates.length === 0 && !error && (
-          <div style={{ textAlign: "center", padding: "60px 24px" }}>
-            <div style={{ fontSize: "48px", marginBottom: "16px" }}>💛</div>
-            <div style={{ fontWeight: 700, color: "#374151", fontSize: "16px", marginBottom: "8px" }}>No updates yet</div>
-            <div style={{ fontSize: "13px", color: "#9CA3AF", lineHeight: "1.6" }}>
-              Your Omsorg care team will post updates here. Check back soon!
-            </div>
-          </div>
-        )}
-
-        {/* Timeline */}
-        {!loading && grouped.map(([date, dayUpdates]) => (
-          <div key={date} style={{ marginBottom: "8px" }}>
-            <div style={{ fontSize: "12px", fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase", letterSpacing: "0.05em", padding: "8px 0 6px", textAlign: "center" }}>
-              — {formatFullDate(date)} —
-            </div>
-            {dayUpdates.map(u => <UpdateCard key={u.id} update={u} />)}
-          </div>
-        ))}
-
-        {!loading && updates.length > 0 && (
-          <div style={{ textAlign: "center", padding: "16px 0", fontSize: "12px", color: "#C0C0C0" }}>
-            All updates are reviewed by Omsorg before publishing
-          </div>
-        )}
-      </div>
-    </>
-  );
-}
-
-export const getServerSideProps = () => ({ props: {} });
+            <div style={{ width: "32px", height: "32px", border: `3px solid ${MAROON}`, borderTopColor: "transparent", borderRadius: "50%", animation: "spin 0.8s linear infinite", margin: "0 auto 12
