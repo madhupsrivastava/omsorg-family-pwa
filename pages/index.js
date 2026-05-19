@@ -3,7 +3,7 @@ import Head from "next/head";
 import { createBrowserClient } from "../lib/supabase";
 
 const MAROON = "#8B1A1A";
-const LOGO_PATH = "/OMSORG-logo%20800x300.jpg";
+const LOGO_PATH = "/Omsorg%20logo.png";
 
 export default function FamilyLogin() {
   const [email,    setEmail]    = useState("");
