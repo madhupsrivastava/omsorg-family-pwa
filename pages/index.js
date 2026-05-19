@@ -3,6 +3,7 @@ import Head from "next/head";
 import { createBrowserClient } from "../lib/supabase";
 
 const MAROON = "#8B1A1A";
+const LOGO_PATH = "/OMSORG-logo%20800x300.jpg";
 
 export default function FamilyLogin() {
   const [email,    setEmail]    = useState("");
@@ -29,7 +30,7 @@ export default function FamilyLogin() {
     setMagicLoading(true); setError("");
     const { error: otpError } = await supabase.auth.signInWithOtp({
       email: magicEmail,
-      options: { emailRedirectTo: "https://omsorg-family-pwa.vercel.app/auth/callback" },
+      options: { emailRedirectTo: window.location.origin + "/auth/callback" },
     });
     if (otpError) { setError(otpError.message); setMagicLoading(false); return; }
     setMagicSent(true);
@@ -43,7 +44,6 @@ export default function FamilyLogin() {
     const { data, error: authError } = await supabase.auth.signInWithPassword({ email, password });
     if (authError) { setError("Incorrect email or password. Please try again."); setLoading(false); return; }
 
-    // Verify this is a family account (extra client-side check — server enforces too)
     const { data: profile } = await supabase
       .from("users")
       .select("role")
@@ -62,6 +62,8 @@ export default function FamilyLogin() {
 
   if (checking) return null;
 
+  const focusCss = "* { box-sizing: border-box; margin: 0; padding: 0; } body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #FFF5F5; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 24px; } input:focus { outline: 2px solid " + MAROON + "; border-color: " + MAROON + "; }";
+
   return (
     <>
       <Head>
@@ -69,21 +71,16 @@ export default function FamilyLogin() {
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <meta name="theme-color" content={MAROON} />
       </Head>
-      <style>{`
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #FFF5F5; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 24px; }
-        input:focus { outline: 2px solid ${MAROON}; border-color: ${MAROON}; }
-      `}</style>
+      <style>{focusCss}</style>
 
       <div style={{ width: "100%", maxWidth: "380px" }}>
         {/* Logo area */}
         <div style={{ textAlign: "center", marginBottom: "32px" }}>
-          <div style={{ width: "64px", height: "64px", borderRadius: "18px", background: MAROON, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 14px" }}>
-            <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
-              <path d="M16 3C10.48 3 6 7.48 6 13c0 3.72 1.94 6.98 4.86 8.88L9 29h14l-1.86-7.12A10 10 0 0026 13c0-5.52-4.48-10-10-10z" fill="#F5C0C0"/>
-            </svg>
-          </div>
-          <div style={{ fontSize: "22px", fontWeight: 800, color: MAROON }}>Omsorg</div>
+          <img
+            src={LOGO_PATH}
+            alt="Omsorg"
+            style={{ maxWidth: "240px", width: "100%", height: "auto", display: "block", margin: "0 auto 8px" }}
+          />
           <div style={{ fontSize: "14px", color: "#9CA3AF", marginTop: "4px" }}>Family Care Portal</div>
         </div>
 
